@@ -2,22 +2,22 @@
  @params :
  @return :
 #>
-function fonctionNumeroUn {
-    Write-Host("appel fonction numéro 1");
+function creerDocumentDevoir {
+    Write-Host("document pour le devoir creer");
 }
 
 <#commentaire pour la deuxième fonction 
  @params :
  @return :
 #>
-function fonctionNumeroDeux {
-     Write-Host("appel fonction numéro 2");
+function creerEvenementCalendrier {
+     Write-Host("Évenement de calendrier creer");
 }
 
 <#commentaire pour la troisième fonction 
  @params :
  @return :
 #>
-function fonctionNumeroTrois {
-     Write-Host("appel fonction numéro 2");
+function creerBulletin {
+     Write-Host("Bulletin creer");
 }
