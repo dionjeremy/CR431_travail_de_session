@@ -9,6 +9,6 @@
     AliasesToExport   = @()
     #Module a importé avant l'utilisation de ce module
     RequiredModules   = @(
-        @{ModuleName='Microsoft.Graph.Calendar'}
+        @{ModuleName='Microsoft.Graph.Calendar';ModuleVersion='2.31.0'}
     )
 }

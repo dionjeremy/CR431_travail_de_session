@@ -4,7 +4,7 @@
 #>
 function creerDocumentDevoir {
      $word = New-Object -ComObject word.application
-     $word.Visible = $false
+     $word.Visible = $True
      $doc = $word.documents.add()
 
      #Set les marges du document 
@@ -20,11 +20,11 @@ function creerDocumentDevoir {
      $selection.TypeParagraph()
 
      #Sauvegarde le document word au repertoire ou la commande a été appelé 
-     $outputPath = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent;
-     $outputPath = $outputPath + "sources.docx";
-     $doc.SaveAs($outputPath);
-     $doc.Close();
-     $word.Quit();
+     $filename = 'C:\Demo.docx'
+     $saveFormat = [Microsoft.Office.Interop.Word.WdSaveFormat]::wdFormatDocumentDefault
+     $mydoc.SaveAs([ref][system.object]$filename, [ref]$saveFormat)
+     $mydoc.Close()
+     $MSWord.Quit()
 
      #affichage à l'utilisateur que le document est créé avec succès
      write-Host("document pour le devoir creer");
