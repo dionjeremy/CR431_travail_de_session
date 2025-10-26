@@ -3,9 +3,15 @@
  @return :
 #>
 function creerDocumentDevoir {
-     $word = New-Object -ComObject word.application
-     $word.Visible = $True
-     $doc = $word.documents.add()
+     $ErrorActionPreference = 'Stop';
+     try {
+          $word = New-Object -ComObject word.application
+          $word.Visible = $True
+          $doc = $word.documents.add()
+     }
+     catch{
+         Write-Error("Il semble que l'executable word ne soit pas installez sur ce poste, il est donc impossible de créer un fichier de type .docx");
+     }
 
      #Set les marges du document 
      $margin = 36 # 1.26 cm
