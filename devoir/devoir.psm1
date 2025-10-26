@@ -1,4 +1,4 @@
-<#commentaire pour la première fonction 
+<#commentaire pour la première fonction (résponsabilité de jeremy)
  @params :
  @return :
 #>
@@ -36,7 +36,7 @@ function creerDocumentDevoir {
      write-Host("document pour le devoir creer");
 }
 
-<#commentaire pour la deuxième fonction 
+<#commentaire pour la deuxième fonction (responsabilité Abdel)
  @params :
  @return :
 #>
@@ -76,7 +76,7 @@ function creerEvenementCalendrier {
      Write-Host("Évenement de calendrier creer");
 }
 
-<#commentaire pour la troisième fonction 
+<#commentaire pour la troisième fonction (responsabilité Gabriel)
  @params :
  @return :
 #>
