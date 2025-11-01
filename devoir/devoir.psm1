@@ -80,6 +80,53 @@ function creerEvenementCalendrier {
  @params :
  @return :
 #>
-function creerBulletin {
+function New-Bulletin {
+     param (
+          [Parameter(Mandatory = $True)][string[]]$IDCours,
+          [Parameter(Mandatory = $True)][string[]]$nomsCours,
+          [string]$cheminDossier,
+          [Double[]]$noteDePassage = 60
+     )
+     <#Verifier si le chemin est defini par l'utilisateur sinon creer le dossier dans un endroit par defaut
+     en fonction du os pour la creation du fichier csv#>
+     if (-not $cheminDossier) {
+          if ($IsWindows) {
+               New-Item -Path "$HOME\Documents" -ItemType Directory -Name Bulletin | Out-Null
+               $cheminDossier = "$HOME\Documents\Bulletin"
+          } elseif ($IsLinux -or $IsMacOS) {
+               New-Item -Path "$HOME/Documents" -ItemType Directory -Name Bulletin | Out-Null
+               $cheminDossier = "$HOME/Documents/Bulletin"
+
+          } else {
+               Write-Host("Systeme d'exploitation invalide")
+               break
+          }
+     } else {
+          New-Item -Path $cheminDossier -ItemType Directory -Name Bulletin | Out-Null
+     }
+     #S'assurer que les id de cours et les cours ont le meme nombre de champs chaque
+     if ($IDCours.count -ne $nomsCours.count){
+          Write-Host("Il manque des valeurs dans le parametre IDCours ou nomsCours")
+          break
+     }
+     $bulletin = @()
+     <#Boucle pour la creation de nos tableaux de chaque cours en fonction des entrees
+     et les sauvegarder dans notre variable pour les retourner#>
+     
+     for ($i = 0; $i -lt $IDCours.count; $i++) {
+
+          $ajoutBulletin = [PSCustomObject]@{
+               IDCours = $IDCours[$i]
+               Cours = $nomsCours[$i]
+               NoteDePassage = $noteDePassage[$i]
+               MoyenneActuelle = $null
+               NotePourPasser =  $null
+               Evaluation = $null
+     }
+          $bulletin += $ajoutBulletin
+     }
      Write-Host("Bulletin creer");
+     return $bulletin
+
+
 }
