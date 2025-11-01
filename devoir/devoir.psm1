@@ -1,39 +1,38 @@
+#commande pour importer le module devoir
+# import-Module Microsoft.Graph.Calendar
+# import-Module devoir
+# appeler votre fonction 
+# si vous modifier les documents du module faite la commande d'import du devoir avec le paramètre -force
+
 <#commentaire pour la première fonction (résponsabilité de jeremy)
  @params :
  @return :
 #>
 function creerDocumentDevoir {
-     $ErrorActionPreference = 'Stop';
-     try {
-          $word = New-Object -ComObject word.application
-          $word.Visible = $True
-          $doc = $word.documents.add()
-     }
-     catch{
-         Write-Error("Il semble que l'executable word ne soit pas installez sur ce poste, il est donc impossible de créer un fichier de type .docx");
-     }
+	$HEADING_TEXT_STYLE = "Heading 1";
+	$TITLE_TEXT_STYLE = "Title"
 
-     #Set les marges du document 
-     $margin = 36 # 1.26 cm
-     $doc.PageSetup.LeftMargin = $margin;
-     $doc.PageSetup.RightMargin = $margin;
-     $doc.PageSetup.TopMargin = $margin;
-     $doc.PageSetup.BottomMargin = $margin;
+
+    $ErrorActionPreference = 'Stop';
+
+    try {
+        $word = New-Object -ComObject word.application
+        $word.Visible = $True
+        $doc = $word.documents.add()
+    }catch{
+        Write-Error("Il semble que l'executable word ne soit pas installez sur ce poste, il est donc impossible de créer un fichier de type .docx");
+    }
+	#fonction pour la gestion des marges (par defaut la valeur de la marge est 36 ou 1,26 cm )
+	AjusterMarge($doc);
+	AjusterStyle($doc);
+	CreationPageIntroduction($doc);
+	CreationSousSection($doc);
      
-     #Ajoute du texte au document
-     $selection = $word.Selection;
-     $selection.TypeText("Hello world!")
-     $selection.TypeParagraph()
-
-     #Sauvegarde le document word au repertoire ou la commande a été appelé 
-     $filename = 'C:\Demo.docx'
-     $saveFormat = [Microsoft.Office.Interop.Word.WdSaveFormat]::wdFormatDocumentDefault
-     $mydoc.SaveAs([ref][system.object]$filename, [ref]$saveFormat)
-     $mydoc.Close()
-     $MSWord.Quit()
-
-     #affichage à l'utilisateur que le document est créé avec succès
-     write-Host("document pour le devoir creer");
+    #Ajoute du texte au document
+    $selection = $word.Selection;
+	$selection.Style="Heading 1"
+    $selection.TypeText("Hello world!");
+    $selection.TypeParagraph();
 }
 
 <#commentaire pour la deuxième fonction (responsabilité Abdel)
@@ -82,4 +81,29 @@ function creerEvenementCalendrier {
 #>
 function creerBulletin {
      Write-Host("Bulletin creer");
+}
+
+function AjusterMarge {
+	Param($doc)
+	#Set les marges du document 
+    $margin = 36 # 1.26 cm
+    $doc.PageSetup.LeftMargin = $margin;
+    $doc.PageSetup.RightMargin = $margin;
+    $doc.PageSetup.TopMargin = $margin;
+    $doc.PageSetup.BottomMargin = $margin;
+}
+
+function AjusterStyle {
+	Param($doc)
+	
+}
+
+function CreationPageIntroduction {
+	Param($doc)
+
+}
+
+function CreationSousSection {
+	Param($doc)
+
 }
