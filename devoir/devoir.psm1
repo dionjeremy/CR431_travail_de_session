@@ -125,11 +125,64 @@ function New-Bulletin {
           $bulletin += $ajoutBulletin
      }
      Write-Host("Bulletin creer");
-<<<<<<< HEAD
+          return $bulletin
+
+}
+#a completer
+function Import-Bulletin {
+     param (
+     [string]$CheminCSV
+     )
+
+     try {
+          $bulletinCSV = Import-Csv -Path $CheminCSV
+     } catch {
+          Write-error "Fichier non trouver dans $CheminCSV"
+          return
+     }
+     
+     $bulletin = @()
+     foreach ($ligne in $bulletinCSV) {
+          $ajoutbulletin = [PSCustomObject]@{
+               IDCours = [string]$ligne.IDCours
+               Cours = [string]$ligne.Cours
+               NoteDePassage = [double]$ligne.noteDePassage
+               MoyenneActuelle = $null 
+               NotePourPasser =  $null
+               Evaluation = $null
+          }
+          
+          if ($ligne.MoyenneActuelle -ne ""){
+               $ajoutbulletin.MoyenneActuelle = [double]$ligne.MoyenneActuelle
+               }
+          if ($ligne.NotePourPasser -ne ""){
+               $ajoutbulletin.NotePourPasser = [double]$ligne.NotePourPasser
+               }
+          if ($ligne.Evaluation -ne ""){
+               $ajoutbulletin.Evaluation = [string]$ligne.Evaluation
+               }
+          $bulletin += $ajoutBulletin
+     }
+     write-Host "Importation du Bulletin CSV terminee"
      return $bulletin
+}
+
+function Set-Bulletin {
+     param (
+
+     )
+}
+
+function Get-AnalyseBulletin {
+     param(
+
+     )
+}
+<<<<<<< HEAD
+
 
 =======
-}
+
 
 function AjusterMarge {
 	Param($doc)
