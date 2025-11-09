@@ -9,11 +9,16 @@
  @return :
 #>
 function creerDocumentDevoir {
-	$HEADING_TEXT_STYLE = "Heading 1";
-	$TITLE_TEXT_STYLE = "Title"
-
-
-    $ErrorActionPreference = 'Stop';
+	Param(
+		[string] $lang = "fr",
+		[int] $marge = 36,
+		[string[]] $nomsEtudiants = "Nom Prénom",
+		[string] $nomCours = "CRXXX - titre cours",
+		[string] $titreTravail = "titre travail",
+		[string] $dateRemise = (Get-Date -Format MM-dd-yyyy),
+		[string[]] $nomsSousSections
+	)
+	write-host($nomsSousSections)
 
     try {
         $word = New-Object -ComObject word.application
@@ -22,17 +27,18 @@ function creerDocumentDevoir {
     }catch{
         Write-Error("Il semble que l'executable word ne soit pas installez sur ce poste, il est donc impossible de créer un fichier de type .docx");
     }
+
+	if($lang.ToLower -ne "fr" -and $lang.ToLower -ne "en"){
+		Write-Host("le code de langue $lang n'est pas valide, la langue par défaut sera donc utilisée");
+		$lang = "fr";
+	}
+	$selection = $word.Selection;
+
 	#fonction pour la gestion des marges (par defaut la valeur de la marge est 36 ou 1,26 cm )
-	AjusterMarge($doc);
-	AjusterStyle($doc);
-	CreationPageIntroduction($doc);
-	CreationSousSection($doc);
-     
-    #Ajoute du texte au document
-    $selection = $word.Selection;
-	$selection.Style="Heading 1"
-    $selection.TypeText("Hello world!");
-    $selection.TypeParagraph();
+	AjusterMarge $doc $marge;
+	CreationPageIntroduction $selection $nomsEtudiants $nomCours $titreTravail $lang;
+	CreationSousSections $selection $nomsSousSections;
+	CreationBibliographie $selection $lang;
 }
 
 <#commentaire pour la deuxième fonction (responsabilité Abdel)
@@ -178,34 +184,70 @@ function Get-AnalyseBulletin {
 
      )
 }
-<<<<<<< HEAD
-
-
-=======
-
 
 function AjusterMarge {
-	Param($doc)
-	#Set les marges du document 
-    $margin = 36 # 1.26 cm
-    $doc.PageSetup.LeftMargin = $margin;
-    $doc.PageSetup.RightMargin = $margin;
-    $doc.PageSetup.TopMargin = $margin;
-    $doc.PageSetup.BottomMargin = $margin;
-}
-
-function AjusterStyle {
-	Param($doc)
-	
+	Param(
+		$doc,
+		$marge
+	)
+    $doc.PageSetup.LeftMargin = $marge;
+    $doc.PageSetup.RightMargin = $marge;
+    $doc.PageSetup.TopMargin = $marge;
+    $doc.PageSetup.BottomMargin = $marge;
 }
 
 function CreationPageIntroduction {
-	Param($doc)
+	Param(
+		$selection,
+		$nomsEtudiants,
+		$nomCours, 
+		$titreTravail, 
+		$lang
+	)
+	$selection.Font.Size = 20;
+	$selection.TypeText($nomCours);
+    $selection.TypeParagraph();
+
+
+	$selection.Style="Title"
+   	$selection.TypeText($titreTravail);
+    $selection.TypeParagraph();
 
 }
 
-function CreationSousSection {
-	Param($doc)
->>>>>>> c0869eabc1472f399ebdeabdbbcab1efe2e45e3c
+function CreationSousSections {
+	Param(
+		$selection,
+		[string[]] $nomsSousSections
+	)
 
+	if($NULL -ne $nomsSousSections -and $nomsSousSections.Length -ne 0 ){
+		foreach ($nomSousSection in $nomsSousSections) {
+			if($nomSousSection -ne ""){
+				$selection.Style="Heading 1"
+   				$selection.TypeText($nomSousSection);
+    			$selection.TypeParagraph();
+			}	
+		}
+
+	}
+
+}
+
+function CreationBibliographie {
+	Param(
+		$selection,
+		$lang
+	)
+	#Constantes pour les titres de la section bibliographie en/fr
+	$titreEng = "Bibliography";
+	$titreFr = "Bibliographie"
+
+	$selection.Style="Heading 1"
+	if($lang.ToLower -eq "fr" ){
+		$selection.TypeText($titreFr);
+	} else {
+		$selection.TypeText($titreEng);
+	}
+    $selection.TypeParagraph();
 }
