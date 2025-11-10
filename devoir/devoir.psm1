@@ -4,9 +4,17 @@
 # appeler votre fonction 
 # si vous modifier les documents du module faite la commande d'import du devoir avec le paramètre -force
 
-<#commentaire pour la première fonction (résponsabilité de jeremy)
- @params :
- @return :
+<#La fonction Permet d'ouvrir l'application word présente sur le poste pour généré un la base 
+  d'un document de travail.La page titre,la table de matière ainsi qu'une section pour les références
+  sont créée automatiquement avec les paramètres donnés par l'utilisateur.
+ @params : $lang           -> langue à appliquer lors de la génération du document, fr/en sont les choix supportés
+           $marge          -> Valeur à attribuer au marge, par défaut la valeur est de 36 soit 1,27cm
+           $nomCours       -> Nom du cours à afficher sur la page titre , une valeur est utilisé s'il n'est pas spécifié
+           $groupe         -> Numero de groupe à afficher sur la page titre, un placeholder est utilisé si aucune valeur n'est spécifiée
+           $titreTravail   -> Titre du travail à afficher sur la page titre, un placeholder est utilisé si aucune valeur n'est spécifiée
+           $nomEnseignant  -> Nom de l'enseignant/chargé de cours à afficher à la page titre, un placeholder est utilisé si aucune valeur n'est spécifié
+           $dateRemise     -> Date de remise du document, si aucune valeur n'est donnée alors la date courrante sera utilisée
+           $nomSousSection -> Liste contenant les valeur des sous-section a générer pour le document
 #>
 function creerDocumentDevoir {
 	Param(
@@ -14,46 +22,53 @@ function creerDocumentDevoir {
 		[int] $marge = 36,
 		[string[]] $nomsEtudiants = "Nom Prénom",
 		[string] $nomCours = "CRXXX - titre du cours",
-          [string] $groupe = "Groupe : XX",
+          [string] $groupe = "XX",
 		[string] $titreTravail = "Titre du travail",
           [string] $nomEnseignant = "Nom Prénom",
 		[string] $dateRemise = (Get-Date -Format MM-dd-yyyy),
 		[string[]] $nomsSousSections
 	)
-	write-host($nomsSousSections)
-
-    try {
-        $word = New-Object -ComObject word.application
-        $word.Visible = $True
-        $doc = $word.documents.add()
-    }catch{
-        Write-Error("Il semble que l'executable word ne soit pas installez sur ce poste, il est donc impossible de créer un fichier de type .docx");
-    }
-
+     Write-Host "Début de la création du document."
+     <#Vérification de la présence de l'application word sur le post, dans le cas ou l'application n'est pas présente la commande 
+       affiche un log d'erreur et termine l'execution de la fonction
+     #>
+     try {
+          $word = New-Object -ComObject word.application
+          $word.Visible = $True
+          $doc = $word.documents.add()
+     }catch{
+          Write-Error("Il semble que l'executable word ne soit pas installez sur ce poste, il est donc impossible de créer un fichier de type .docx");
+     }
+     
+     #vérification du code langue passé en paramètre si le code chosi ne correspond pas a fr/en , alors la langue par défaut "fr" est utilisée
 	if($lang.ToLower() -ne "fr" -and $lang.ToLower() -ne "en"){
-		Write-Host("le code de langue $lang n'est pas valide, la langue par défaut sera donc utilisée");
+	     Write-Host("le code de langue $lang n'est pas valide, la langue par défaut sera donc utilisée");
 		$lang = "fr";
 	}
-
+     #vérification de la liste des étudiants, la limite est mise a 15 (pour le formatage), dans le cas ou la limite est dépassée la liste est mise a vide 
+     #et un log d'erreur est afficher à l'utilisateur lui disant qu'il devra ajouté les noms manuellement au document
      if($nomsEtudiants.Length -gt 15){
 		Write-Error("la taille de la listes de noms d'étudiant est suppérieur à 15 , la liste est mise a vide et les noms devront être entrés manuellement");
           $nomsEtudiants = ""
 	}
+
+
      #création de l'objet permettant l'ajout et la manipulation du document word
      $selection = $word.Selection;
 
-	#fonction pour la gestion des marges (par defaut la valeur de la marge est 36 ou 1,26 cm )
-     Write-Host("Ajustement des marges")
+	#Ajustement des marges
 	AjusterMarge $doc $marge;
-     write-host("Création de la page titre")
+     #Création de la page titre
 	CreationPageIntroduction $selection $nomsEtudiants $nomCours $titreTravail $dateRemise $groupe $nomEnseignant $lang;
-     Write-Host("Création de la table des matières");
+     #Création de la table des matières
      $tableDesMatieres = addTableDesMatieres $selection
-     Write-Host("Ajout des sous-sections")
+     #Ajout des sous-sections
 	CreationSousSections $selection $nomsSousSections;
-     Write-Host("Ajout de la bibliographie")
+     #Ajout de la page de références
 	CreationBibliographie $selection $lang;
+     #update de la table des matières pour afficher les sous sections du document
      $tableDesMatieres.Update()
+     Write-Host "Fin de la génération du document."
 }
 
 <#commentaire pour la deuxième fonction (responsabilité Abdel)
@@ -200,6 +215,10 @@ function Get-AnalyseBulletin {
      )
 }
 
+<#Fonction qui permet d'ajuster les marges du document
+ @params : $doc   -> Objet représentant le document word présentement ouvert
+           $marge -> Valeur numéric représentant la taille des marges a appliquer au document
+#>
 function AjusterMarge {
 	Param(
 		$doc,
@@ -211,6 +230,28 @@ function AjusterMarge {
     $doc.PageSetup.BottomMargin = $marge;
 }
 
+
+<#Fonction pour la création des sous sections 
+ @params : $selection        -> Objet depuis lequel il est possible d'ajouté du contenue au document word
+           $nomsSousSections -> Liste contenant les titre de sous sections a ajouter au document
+#>
+function CreationSousSections {
+	Param(
+		$selection,
+		[string[]] $nomsSousSections
+	)
+     iterateAndPrintArrayElement $nomsSousSections "Heading 1"
+}
+
+<#Fonction qui créer la page titre
+ @params : $selection      -> Objet depuis lequel il est possible d'ajouté du contenue au document word
+           $nomsEtudiants  -> Liste contenant le noms des étudiants a ajouté a lapage titre
+           $nomCours       -> String contenant le noms du cours
+           $dateRemise     -> La date de remise prévu pour le document (si aucune date n'est passé la date courrante sera prise)
+           $groupe         -> Numero de groupe 
+           $nomEnseignant  -> Nom de l'enseignant/chargé de cours
+           $lang           -> lang selectionné pour la création du document
+#>
 function CreationPageIntroduction {
 	Param(
 		$selection,
@@ -238,271 +279,7 @@ function CreationPageIntroduction {
      addEmptyLine $selection 
 
 
-     #Ajout du noms de ou des étudiants à la page titre#commande pour importer le module devoir
-# import-Module Microsoft.Graph.Calendar
-# import-Module devoir
-# appeler votre fonction 
-# si vous modifier les documents du module faite la commande d'import du devoir avec le paramètre -force
-
-<#commentaire pour la première fonction (résponsabilité de jeremy)
- @params :
- @return :
-#>
-function creerDocumentDevoir {
-	Param(
-		[string] $lang = "fr",
-		[int] $marge = 36,
-		[string[]] $nomsEtudiants = "Nom Prénom",
-		[string] $nomCours = "CRXXX - titre cours",
-		[string] $titreTravail = "titre travail",
-		[string] $dateRemise = (Get-Date -Format MM-dd-yyyy),
-		[string[]] $nomsSousSections
-	)
-	write-host($nomsSousSections)
-
-    try {
-        $word = New-Object -ComObject word.application
-        $word.Visible = $True
-        $doc = $word.documents.add()
-    }catch{
-        Write-Error("Il semble que l'executable word ne soit pas installez sur ce poste, il est donc impossible de créer un fichier de type .docx");
-    }
-
-	if($lang.ToLower -ne "fr" -and $lang.ToLower -ne "en"){
-		Write-Host("le code de langue $lang n'est pas valide, la langue par défaut sera donc utilisée");
-		$lang = "fr";
-	}
-	$selection = $word.Selection;
-
-	#fonction pour la gestion des marges (par defaut la valeur de la marge est 36 ou 1,26 cm )
-	AjusterMarge $doc $marge;
-	CreationPageIntroduction $selection $nomsEtudiants $nomCours $titreTravail $dateRemise $lang;
-	CreationSousSections $selection $nomsSousSections;
-	CreationBibliographie $selection $lang;
-}
-
-<#commentaire pour la deuxième fonction (responsabilité Abdel)
- @params :
- @return :
-#>
-function creerEvenementCalendrier {
-
-     $params = @{
-	     subject = "Test création event"
-	     body = @{
-		     contentType = "HTML"
-		     content = "test"
-	     }
-	     start = @{
-		     dateTime = "2025-01-01T00:00:00"
-		     timeZone = "Pacific Standard Time"
-	     }
-	     end = @{
-		     dateTime = "2025-01-01T01:00:00"
-		     timeZone = "Pacific Standard Time"
-	     }
-	     location = @{
-		     displayName = ""
-	     }
-	     attendees = @(
-		     @{
-			     emailAddress = @{
-				     address = ""
-				     name = ""
-			     }
-			     type = "required"
-		     }
-	     )
-	     transactionId = ""
-     }
-
-     #Verifier les paramètres pour la création de l'évenement
-     New-MgUserCalendarEvent -UserId $userId -CalendarId $calendarId -BodyParameter $params
-     Write-Host("Évenement de calendrier creer");
-}
-
-<#commentaire pour la troisième fonction (responsabilité Gabriel)
- @params :
- @return :
-#>
-function New-Bulletin {
-     param (
-          [Parameter(Mandatory = $True)][string[]]$IDCours,
-          [Parameter(Mandatory = $True)][string[]]$nomsCours,
-          [string]$cheminDossier,
-          [Double[]]$noteDePassage = 60
-     )
-     <#Verifier si le chemin est defini par l'utilisateur sinon creer le dossier dans un endroit par defaut
-     en fonction du os pour la creation du fichier csv#>
-     if (-not $cheminDossier) {
-          if ($IsWindows) {
-               New-Item -Path "$HOME\Documents" -ItemType Directory -Name Bulletin | Out-Null
-               $cheminDossier = "$HOME\Documents\Bulletin"
-          } elseif ($IsLinux -or $IsMacOS) {
-               New-Item -Path "$HOME/Documents" -ItemType Directory -Name Bulletin | Out-Null
-               $cheminDossier = "$HOME/Documents/Bulletin"
-
-          } else {
-               Write-Host("Systeme d'exploitation invalide")
-               break
-          }
-     } else {
-          New-Item -Path $cheminDossier -ItemType Directory -Name Bulletin | Out-Null
-     }
-     #S'assurer que les id de cours et les cours ont le meme nombre de champs chaque
-     if ($IDCours.count -ne $nomsCours.count){
-          Write-Host("Il manque des valeurs dans le parametre IDCours ou nomsCours")
-          break
-     }
-     $bulletin = @()
-     <#Boucle pour la creation de nos tableaux de chaque cours en fonction des entrees
-     et les sauvegarder dans notre variable pour les retourner#>
-     
-     for ($i = 0; $i -lt $IDCours.count; $i++) {
-
-          $ajoutBulletin = [PSCustomObject]@{
-               IDCours = $IDCours[$i]
-               Cours = $nomsCours[$i]
-               NoteDePassage = $noteDePassage[$i]
-               MoyenneActuelle = $null
-               NotePourPasser =  $null
-               Evaluation = $null
-     }
-          $bulletin += $ajoutBulletin
-     }
-     Write-Host("Bulletin creer");
-          return $bulletin
-
-}
-#a completer
-function Import-Bulletin {
-     param (
-     [string]$CheminCSV
-     )
-
-     try {
-          $bulletinCSV = Import-Csv -Path $CheminCSV
-     } catch {
-          Write-error "Fichier non trouver dans $CheminCSV"
-          return
-     }
-     
-     $bulletin = @()
-     foreach ($ligne in $bulletinCSV) {
-          $ajoutbulletin = [PSCustomObject]@{
-               IDCours = [string]$ligne.IDCours
-               Cours = [string]$ligne.Cours
-               NoteDePassage = [double]$ligne.noteDePassage
-               MoyenneActuelle = $null 
-               NotePourPasser =  $null
-               Evaluation = $null
-          }
-          
-          if ($ligne.MoyenneActuelle -ne ""){
-               $ajoutbulletin.MoyenneActuelle = [double]$ligne.MoyenneActuelle
-               }
-          if ($ligne.NotePourPasser -ne ""){
-               $ajoutbulletin.NotePourPasser = [double]$ligne.NotePourPasser
-               }
-          if ($ligne.Evaluation -ne ""){
-               $ajoutbulletin.Evaluation = [string]$ligne.Evaluation
-               }
-          $bulletin += $ajoutBulletin
-     }
-     write-Host "Importation du Bulletin CSV terminee"
-     return $bulletin
-}
-
-function Set-Bulletin {
-     param (
-
-     )
-}
-
-function Get-AnalyseBulletin {
-     param(
-
-     )
-}
-
-function AjusterMarge {
-	Param(
-		$doc,
-		$marge
-	)
-    $doc.PageSetup.LeftMargin = $marge;
-    $doc.PageSetup.RightMargin = $marge;
-    $doc.PageSetup.TopMargin = $marge;
-    $doc.PageSetup.BottomMargin = $marge;
-}
-
-function CreationPageIntroduction {
-	Param(
-		$selection,
-		$nomsEtudiants,
-		$nomCours, 
-		$titreTravail, 
-		$lang
-	)
-	$selection.Font.Size = 20;
-	$selection.TypeText($nomCours);
-     $selection.TypeParagraph();
-
-
-     $selection.Style="Title"
-   	$selection.TypeText($titreTravail);
-     $selection.TypeParagraph();
-
-     iterateAndPrintArrayElement $nomsEtudiants "normal"
-
-}
-
-function CreationSousSections {
-	Param(
-		$selection,
-		[string[]] $nomsSousSections
-	)
-     iterateAndPrintArrayElement $nomsSousSections "Heading 1"
-}
-
-function iterateAndPrintArrayElement{
-     Param(
-          [string[]] $elements,
-          [string] $style
-     )
-
-     if($NULL -ne $elements -and $elements.Length -ne 0 ){
-		foreach ($element in $elements) {
-			if($element -ne ""){
-				$selection.Style=$style
-   				$selection.TypeText($elements);
-    			     $selection.TypeParagraph();
-			}	
-		}
-
-	}
-}
-
-
-
-
-function CreationBibliographie {
-	Param(
-		$selection,
-		$lang
-	)
-	#Constantes pour les titres de la section bibliographie en/fr
-	$titreEng = "Bibliography";
-	$titreFr = "Bibliographie"
-
-	$selection.Style="Heading 1"
-	if($lang.ToLower -eq "fr" ){
-		$selection.TypeText($titreFr);
-	} else {
-		$selection.TypeText($titreEng);
-	}
-    $selection.TypeParagraph();
-}
+     #Ajout du noms de ou des étudiants à la page titre
      $presenteParLabelFr = "Présenté par :";
      $presenteParLabelEn = "Presented by :";
      printLine $selection (stringFromLangOption $lang $presenteParLabelFr $presenteParLabelEn) "Quote" 0 1
@@ -522,6 +299,12 @@ function CreationBibliographie {
      printLine $selection ((stringFromLangOption $lang $dateRemiseLabelFr $dateRemiseLabelEn) + $dateRemise)"normal" 0 1
 }
 
+<#Fonction qui permet d'ajouté du texte au document et d'appliquer différent attribut
+ @params : $selection      -> Objet depuis lequel il est possible d'ajouté du contenue au document word
+           $text           -> Texte à ajouter au document
+           $fontSize       -> taille de la police 
+           $TextAlignement -> Alignement du texte (3 par default ce qui justifie le texte vers la gauche)
+#>
 function printLine {
      Param(
           $selection,
@@ -530,10 +313,10 @@ function printLine {
           [int] $fontSize,
           [int] $textAlignment = 3
      )
+     #Verification pour la taille de la police, si elle est spécifié (non nulle ou n'est pas égale a zéro) elle est ajustée
      if($NULL -ne $fontSize -and $fontSize -ne 0){
           $selection.Font.Size = $fontSize;
      }
-
      $selection.Style = $style
 	$selection.TypeText($text);
      $selection.ParagraphFormat.Alignment = $textAlignment
@@ -568,11 +351,14 @@ function iterateAndPrintArrayElement{
           [int] $alignment
      )
 
+     #Vérification pour s'assurer que la liste d'element n'est pas nulle ou vide
      if($NULL -ne $elements -and $elements.Length -ne 0 ){
+          #Boucle pour ajouter du texte dans un style donnée a chaque élément de la liste
 		foreach ($element in $elements) {
 			if($element -ne ""){
 				$selection.Style=$style
    				$selection.TypeText($element);
+                    #Si l'alignement est non null alors il est ajusté 
                     if($NULL -ne $alignment){
                          $selection.ParagraphFormat.Alignment = $alignment
                     }
@@ -612,30 +398,43 @@ function CreationBibliographie {
 		$lang
 	)
 	#Constantes pour les titres de la section bibliographie en/fr
-	$titreLabelEng = "Bibliography";
-	$titreLabelFr = "Bibliographie";
+	$titreLabelEng = "Références";
+	$titreLabelFr = "References";
      printLine $selection (stringFromLangOption $lang $titreLabelFr $titreLabelEng) "Heading 1"
 }
 
+<#Fonction qui ajoute un nombre de ligne vide passé en paramètre
+ @params : $selection -> Objet depuis lequel il est possible d'ajouté du contenue au document word
+           $nbLigne   -> nombre de ligne vide a ajouté
+#>
 function addEmptyLine {
      param (
        $selection,
        [int] $nbLigne = 1
      )
      
+     #une boucle pour ajouter un ligne vide pour un nombre de lignes données
      For($i = 0; $i -lt $nbLigne; $i++){
           printLine $selection "" "Normal"
      }
 }
 
+<#Fonction qui initialise la table des matière 
+ @params : $selection -> Objet depuis lequel il est possible d'ajouté du contenue au document word
+#>
 function addTableDesMatieres{
      param(
           $selection
      )
+     #Label pour les tables des matière en englais et en français
      $TableMatiereLabelFr = "Table des matières"
      $TableMatiereLabelEn = "Table of contents"
+
+     #ajout du titre pour la table des matière
      printLine $selection (stringFromLangOption $lang $TableMatiereLabelFr $TableMatiereLabelEn) "Normal" 18 1
      addEmptyLine $selection 
+     
+     #initialise la table des matières avant la création des sous-sections
      $range = $selection.Range;
      return $doc.TablesofContents.add($range)
 }
