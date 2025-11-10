@@ -137,7 +137,10 @@ function New-Bulletin {
                break
           }
      } else {
+          #Si l'utilisateur a donner un chemin, on l'utilise au lieu d'utiliser celui par defaut
           New-Item -Path $cheminDossier -ItemType Directory -Name Bulletin | Out-Null
+          $cheminDossierBulletin= Join-Path -Path $cheminDossier -ChildPath "Bulletin"
+          $CheminCreationCSV = Join-Path -Path $cheminDossierBulletin -ChildPath "Bulletin.csv"
      }
      #S'assurer que les id de cours et les cours ont le meme nombre de champs chaque
      if ($IDCours.count -ne $nomsCours.count){
@@ -145,9 +148,9 @@ function New-Bulletin {
           break
      }
      $bulletin = @()
+     
      <#Boucle pour la creation de nos tableaux de chaque cours en fonction des entrees
      et les sauvegarder dans notre variable pour les retourner#>
-     
      for ($i = 0; $i -lt $IDCours.count; $i++) {
 
           $ajoutBulletin = [PSCustomObject]@{
@@ -156,27 +159,31 @@ function New-Bulletin {
                NoteDePassage = $noteDePassage[$i]
                MoyenneActuelle = $null
                NotePourPasser =  $null
-               Evaluation = $null
-     }
+               Evaluation = [PSCustomObject]@{}
+          }    
           $bulletin += $ajoutBulletin
      }
      Write-Host("Bulletin creer");
-          return $bulletin
+     $bulletin | Export-Csv -Path $cheminCreationCSV | Out-Null
+     return $bulletin
 
 }
-#a completer
+
+<##>
 function Import-Bulletin {
      param (
-     [string]$CheminCSV
+     [Parameter(Mandatory = $True)][string]$CheminCSV
      )
-
+     <#on essaie le chemin donner par l'utilisateur, si il n'existe pas, on sort un erreur comme quoi le fichier
+     n'a pas ete trouver#>
      try {
           $bulletinCSV = Import-Csv -Path $CheminCSV
      } catch {
           Write-error "Fichier non trouver dans $CheminCSV"
           return
      }
-     
+     <#On boucle les lignes dans le fichier csv pour importer les informations dans notre objet
+     ajoutbulletin et on l'ajoute a notre tableau $bulletin #>
      $bulletin = @()
      foreach ($ligne in $bulletinCSV) {
           $ajoutbulletin = [PSCustomObject]@{
@@ -185,28 +192,73 @@ function Import-Bulletin {
                NoteDePassage = [double]$ligne.noteDePassage
                MoyenneActuelle = $null 
                NotePourPasser =  $null
-               Evaluation = $null
+               Evaluation = [PSCustomObject]@{}
           }
-          
-          if ($ligne.MoyenneActuelle -ne ""){
-               $ajoutbulletin.MoyenneActuelle = [double]$ligne.MoyenneActuelle
-               }
+          # on verifie si NotePourPasser n'est pas vide pour importer lesinformations
           if ($ligne.NotePourPasser -ne ""){
                $ajoutbulletin.NotePourPasser = [double]$ligne.NotePourPasser
                }
-          if ($ligne.Evaluation -ne ""){
-               $ajoutbulletin.Evaluation = [string]$ligne.Evaluation
+          <# On verifie si Evaluation n'est pas vide et si ce qui est ecrit commence par @{}
+          pour pouvoir importer l'objet evaluation de notre csv#>
+          if ($ligne.Evaluation -ne "" -and $ligne.Evaluation.StartsWith("@{")){
+               $objetEvaluation = Invoke-Expression $ligne.Evaluation
+               $ajoutbulletin.Evaluation = [PSCustomObject]$objetEvaluation
                }
           $bulletin += $ajoutBulletin
      }
-     write-Host "Importation du Bulletin CSV terminee"
+     write-Host "Importation du Bulletin CSV terminée"
      return $bulletin
 }
 
 function Set-Bulletin {
      param (
-
+          [Parameter(Mandatory=$True, ValueFromPipeline=$True)][psobject[]]$bulletin,
+          [Parameter(Mandatory=$True)][string]$IDCours,
+          [Parameter(Mandatory=$True)][string[]]$nomEvaluation,
+          [Parameter(Mandatory=$True)][double[]]$note,
+          [Parameter(Mandatory=$True)][double[]]$ponderation
      )
+
+     $modifiercours = $bulletin | Where-Object {$_.IDCours -eq $IDCours}
+     if (-not $modifiercours) {
+          Write-Error "Le cours $IDCours ne se trouve pas dans le bulletin"
+          break
+     }
+     if (($nomEvaluation.count -ne $note.count) -or ($nomEvaluation.Count -ne $ponderation.count)){
+          Write-Host("Il manque des valeurs dans le parametre nomEvaluation, note ou ponderation ")
+          break
+     }
+
+     for ($i = 0; $i -lt $nomEvaluation.count; $i++) {
+          $eval = $nomEvaluation[$i]
+          $notePonderation = [PSCustomObject]@{
+               Note = $note[$i]
+               Ponderation = $ponderation[$i]
+          }
+          add-member -InputObject $modifiercours.Evaluation -MemberType NoteProperty -Name $eval -Value $notePonderation     
+     }
+
+     $totalNotePonderer = 0.0
+     $totalPonderation = 0.0
+
+    foreach ($eval in $modifiercours.Evaluation.psobject.Properties) {
+        $noteEval = $eval.Value.Note
+        $pondEval = $eval.Value.Ponderation
+        
+        if ($pondEval -ne $null) {
+            $totalNotePonderer += ($noteEval * $pondEval)
+            $totalPonderation += $pondEval
+        }
+    }
+
+    if ($totalPonderation -gt 0) {
+        $moyenneActuelle = $totalNotePonderer / $totalPonderation
+        $modifiercours.MoyenneActuelle = [math]::Round($moyenneActuelle, 2)
+    } else {
+        $modifiercours.MoyenneActuelle = $null
+    }
+    Write-Host "Modification du bulletin terminée"
+    return $bulletin
 }
 
 function Get-AnalyseBulletin {
