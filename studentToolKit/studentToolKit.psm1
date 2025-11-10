@@ -1,13 +1,13 @@
-#commande pour importer le module devoir
+# commande pour importer le module devoir
 # import-Module Microsoft.Graph.Calendar
-# import-Module devoir
+# import-Module studentToolKit
 # appeler votre fonction 
-# si vous modifier les documents du module faite la commande d'import du devoir avec le paramètre -force
+# si vous modifier les documents du module faite la commande d'import du studentToolKit avec le paramètre -force
 
 <#La fonction Permet d'ouvrir l'application word présente sur le poste pour généré un la base 
   d'un document de travail.La page titre,la table de matière ainsi qu'une section pour les références
   sont créée automatiquement avec les paramètres donnés par l'utilisateur.
- @params : $lang           -> langue à appliquer lors de la génération du document, fr/en sont les choix supportés
+  @params :$lang           -> langue à appliquer lors de la génération du document, fr/en sont les choix supportés
            $marge          -> Valeur à attribuer au marge, par défaut la valeur est de 36 soit 1,27cm
            $nomCours       -> Nom du cours à afficher sur la page titre , une valeur est utilisé s'il n'est pas spécifié
            $groupe         -> Numero de groupe à afficher sur la page titre, un placeholder est utilisé si aucune valeur n'est spécifiée
@@ -16,7 +16,7 @@
            $dateRemise     -> Date de remise du document, si aucune valeur n'est donnée alors la date courrante sera utilisée
            $nomSousSection -> Liste contenant les valeur des sous-section a générer pour le document
 #>
-function creerDocumentDevoir {
+function New-Document {
 	Param(
 		[string] $lang = "fr",
 		[int] $marge = 36,
@@ -37,9 +37,10 @@ function creerDocumentDevoir {
           $word.Visible = $True
           $doc = $word.documents.add()
      }catch{
-          Write-Error("Il semble que l'executable word ne soit pas installez sur ce poste, il est donc impossible de créer un fichier de type .docx");
+          Write-Error("Il semble que l'executable word ne soit pas installez sur ce poste, il est donc impossible de créer un fichier de type .docx") -ErrorAction Stop
      }
      
+
      #vérification du code langue passé en paramètre si le code chosi ne correspond pas a fr/en , alors la langue par défaut "fr" est utilisée
 	if($lang.ToLower() -ne "fr" -and $lang.ToLower() -ne "en"){
 	     Write-Host("le code de langue $lang n'est pas valide, la langue par défaut sera donc utilisée");
@@ -55,17 +56,16 @@ function creerDocumentDevoir {
 
      #création de l'objet permettant l'ajout et la manipulation du document word
      $selection = $word.Selection;
-
 	#Ajustement des marges
-	AjusterMarge $doc $marge;
+	Set-Marge $doc $marge;
      #Création de la page titre
-	CreationPageIntroduction $selection $nomsEtudiants $nomCours $titreTravail $dateRemise $groupe $nomEnseignant $lang;
+	Add-PageIntroduction $selection $nomsEtudiants $nomCours $titreTravail $dateRemise $groupe $nomEnseignant $lang;
      #Création de la table des matières
-     $tableDesMatieres = addTableDesMatieres $selection
+     $tableDesMatieres = Add-TableDesMatieres $selection
      #Ajout des sous-sections
-	CreationSousSections $selection $nomsSousSections;
+	Add-SousSections $selection $nomsSousSections;
      #Ajout de la page de références
-	CreationBibliographie $selection $lang;
+	Add-Bibliographie $selection $lang;
      #update de la table des matières pour afficher les sous sections du document
      $tableDesMatieres.Update()
      Write-Host "Fin de la génération du document."
@@ -219,7 +219,7 @@ function Get-AnalyseBulletin {
  @params : $doc   -> Objet représentant le document word présentement ouvert
            $marge -> Valeur numéric représentant la taille des marges a appliquer au document
 #>
-function AjusterMarge {
+function Set-Marge {
 	Param(
 		$doc,
 		$marge
@@ -235,12 +235,12 @@ function AjusterMarge {
  @params : $selection        -> Objet depuis lequel il est possible d'ajouté du contenue au document word
            $nomsSousSections -> Liste contenant les titre de sous sections a ajouter au document
 #>
-function CreationSousSections {
+function Add-SousSections {
 	Param(
 		$selection,
 		[string[]] $nomsSousSections
 	)
-     iterateAndPrintArrayElement $nomsSousSections "Heading 1"
+     Write-ElementOfArray $nomsSousSections "Heading 1"
 }
 
 <#Fonction qui créer la page titre
@@ -252,7 +252,7 @@ function CreationSousSections {
            $nomEnseignant  -> Nom de l'enseignant/chargé de cours
            $lang           -> lang selectionné pour la création du document
 #>
-function CreationPageIntroduction {
+function Add-PageIntroduction {
 	Param(
 		$selection,
 		$nomsEtudiants,
@@ -264,39 +264,39 @@ function CreationPageIntroduction {
 		$lang
 	)
      #Ajout du titre du cours à la page titre
-     printLine $selection $nomCours "Title" 20 1
+     Add-Line $selection $nomCours "Title" 20 1
      
 
      #Ajout du numero de groupe à la page titre
      $groupeLabelFr = "Groupe : ";
      $groupeLabelEn = "Group : ";
-     printLine $selection ((stringFromLangOption $lang $groupeLabelFr $groupeLabelEn) + $groupe) "Strong" 16 1
-     addEmptyLine $selection 
+     Add-Line $selection ((Get-LabelFromLang $lang $groupeLabelFr $groupeLabelEn) + $groupe) "Strong" 16 1
+     Add-EmptyLine $selection 
 
 
      #Ajout du titre du travail à la page titre
-     printLine $selection $titreTravail "Title" 0 1
-     addEmptyLine $selection 
+     Add-Line $selection $titreTravail "Title" 0 1
+     Add-EmptyLine $selection 
 
 
      #Ajout du noms de ou des étudiants à la page titre
      $presenteParLabelFr = "Présenté par :";
      $presenteParLabelEn = "Presented by :";
-     printLine $selection (stringFromLangOption $lang $presenteParLabelFr $presenteParLabelEn) "Quote" 0 1
-     iterateAndPrintArrayElement $selection $nomsEtudiants "Quote" 1
+     Add-Line $selection (Get-LabelFromLang $lang $presenteParLabelFr $presenteParLabelEn) "Quote" 0 1
+     Write-ElementOfArray $selection $nomsEtudiants "Quote" 1
 
      #Ajoute un nombre de ligne vide pour la présentation de la page titre
-     addEmptyLine $selection (16 - $nomsEtudiants.Length)
+     Add-EmptyLine $selection (16 - $nomsEtudiants.Length)
 
      #Ajout du noms de ou des étudiants à la page titre
      $presenteParLabelFr = "Présenté à : ";
      $presenteParLabelEn = "Presented to : ";
-     printLine $selection ((stringFromLangOption $lang $presenteParLabelFr $presenteParLabelEn) + $nomEnseignant) "normal" 0 1
+     Add-Line $selection ((Get-LabelFromLang $lang $presenteParLabelFr $presenteParLabelEn) + $nomEnseignant) "normal" 0 1
 
      #Ajout de la Date de remise (par défault c'est la date courrante)
      $dateRemiseLabelFr = "Date de remise : ";
      $dateRemiseLabelEn = "Submitted date : ";
-     printLine $selection ((stringFromLangOption $lang $dateRemiseLabelFr $dateRemiseLabelEn) + $dateRemise)"normal" 0 1
+     Add-Line $selection ((Get-LabelFromLang $lang $dateRemiseLabelFr $dateRemiseLabelEn) + $dateRemise)"normal" 0 1
 }
 
 <#Fonction qui permet d'ajouté du texte au document et d'appliquer différent attribut
@@ -305,7 +305,7 @@ function CreationPageIntroduction {
            $fontSize       -> taille de la police 
            $TextAlignement -> Alignement du texte (3 par default ce qui justifie le texte vers la gauche)
 #>
-function printLine {
+function Add-Line {
      Param(
           $selection,
           [string] $text,
@@ -329,12 +329,12 @@ function printLine {
  @params : $selection         -> Objet depuis lequel il est possible d'ajouté du contenue au document word
            $nomsSousSections  -> Liste des titres des sous-sections a ajouter au document
 #>
-function CreationSousSections {
+function Add-SousSections {
 	Param(
 		$selection,
 		[string[]] $nomsSousSections
 	)
-     iterateAndPrintArrayElement $selection $nomsSousSections "Heading 1"
+     Write-ElementOfArray $selection $nomsSousSections "Heading 1"
 }
 
 <#Fonction qui permet d'ajouter du texte au document avec un liste d'élément en paramètre
@@ -343,7 +343,7 @@ function CreationSousSections {
            $Style     -> String qui indique le style a appliquer aux éléments
            $alignement-> int qui indique de quel façon le texte devrait être aligné dans le texte (1 correspond a du texte centrer)
 #>
-function iterateAndPrintArrayElement{
+function Write-ElementOfArray{
      Param(
           $selection,
           [string[]] $elements,
@@ -375,7 +375,7 @@ function iterateAndPrintArrayElement{
            $labelEn -> valeur du label pour texte en englais
  @return : le label contenant le texte pour la langue passé en paramètre
 #>
-function stringFromLangOption{
+function Get-LabelFromLang{
      param(
           [string] $lang,
           [string] $labelFr,
@@ -392,22 +392,22 @@ function stringFromLangOption{
  @params : $selection         -> Objet depuis lequel il est possible d'ajouté du contenue au document word
            $nomsSousSections  -> Liste des titres des sous-sections a ajouter au document
 #>
-function CreationBibliographie {
+function Add-Bibliographie {
 	Param(
 		$selection,
 		$lang
 	)
 	#Constantes pour les titres de la section bibliographie en/fr
-	$titreLabelEng = "Références";
-	$titreLabelFr = "References";
-     printLine $selection (stringFromLangOption $lang $titreLabelFr $titreLabelEng) "Heading 1"
+	$titreLabelFr = "Références";
+	$titreLabelEn = "References";
+     Add-Line $selection (Get-LabelFromLang $lang $titreLabelFr $titreLabelEn) "Heading 1"
 }
 
 <#Fonction qui ajoute un nombre de ligne vide passé en paramètre
  @params : $selection -> Objet depuis lequel il est possible d'ajouté du contenue au document word
            $nbLigne   -> nombre de ligne vide a ajouté
 #>
-function addEmptyLine {
+function Add-EmptyLine {
      param (
        $selection,
        [int] $nbLigne = 1
@@ -415,14 +415,14 @@ function addEmptyLine {
      
      #une boucle pour ajouter un ligne vide pour un nombre de lignes données
      For($i = 0; $i -lt $nbLigne; $i++){
-          printLine $selection "" "Normal"
+          Add-Line $selection "" "Normal"
      }
 }
 
 <#Fonction qui initialise la table des matière 
  @params : $selection -> Objet depuis lequel il est possible d'ajouté du contenue au document word
 #>
-function addTableDesMatieres{
+function Add-TableDesMatieres{
      param(
           $selection
      )
@@ -431,8 +431,8 @@ function addTableDesMatieres{
      $TableMatiereLabelEn = "Table of contents"
 
      #ajout du titre pour la table des matière
-     printLine $selection (stringFromLangOption $lang $TableMatiereLabelFr $TableMatiereLabelEn) "Normal" 18 1
-     addEmptyLine $selection 
+     Add-Line $selection (Get-LabelFromLang $lang $TableMatiereLabelFr $TableMatiereLabelEn) "Normal" 18 1
+     Add-EmptyLine $selection 
      
      #initialise la table des matières avant la création des sous-sections
      $range = $selection.Range;
