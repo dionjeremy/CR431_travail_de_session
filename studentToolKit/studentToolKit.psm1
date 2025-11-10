@@ -60,14 +60,18 @@ function New-Document {
 	Set-Marge $doc $marge;
      #Création de la page titre
 	Add-PageIntroduction $selection $nomsEtudiants $nomCours $titreTravail $dateRemise $groupe $nomEnseignant $lang;
-     #Création de la table des matières
-     $tableDesMatieres = Add-TableDesMatieres $selection
+     #Création de la table des matières si le nombres de sous sections est suppérieur a 0
+     if($nomsSousSections.Length -ne 0){
+          $tableDesMatieres = Add-TableDesMatieres $selection
+     }
      #Ajout des sous-sections
 	Add-SousSections $selection $nomsSousSections;
      #Ajout de la page de références
 	Add-Bibliographie $selection $lang;
-     #update de la table des matières pour afficher les sous sections du document
-     $tableDesMatieres.Update()
+     #update de la table des matières pour afficher les sous sections du document si le nombres de sous sections est suppérieur a 0
+     if($nomsSousSections.Length -ne 0){
+          $tableDesMatieres.Update();
+     }
      Write-Host "Fin de la génération du document."
 }
 
@@ -245,7 +249,7 @@ function Set-Bulletin {
         $noteEval = $eval.Value.Note
         $pondEval = $eval.Value.Ponderation
         
-        if ($pondEval -ne $null) {
+        if ($null -ne $pondEval) {
             $totalNotePonderer += ($noteEval * $pondEval)
             $totalPonderation += $pondEval
         }
@@ -338,7 +342,7 @@ function Add-PageIntroduction {
      Write-ElementOfArray $selection $nomsEtudiants "Quote" 1
 
      #Ajoute un nombre de ligne vide pour la présentation de la page titre
-     Add-EmptyLine $selection (16 - $nomsEtudiants.Length)
+     Add-EmptyLine $selection (18 - $nomsEtudiants.Length)
 
      #Ajout du noms de ou des étudiants à la page titre
      $presenteParLabelFr = "Présenté à : ";
