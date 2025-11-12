@@ -115,7 +115,7 @@ function creerEvenementCalendrier {
      Write-Host("Évenement de calendrier creer");
 }
 
-<#commentaire pour la troisième fonction (responsabilité Gabriel)
+<#
  @params :
  @return :
 #>
@@ -162,12 +162,13 @@ function New-Bulletin {
                Cours = $nomsCours[$i]
                NoteDePassage = $noteDePassage[$i]
                MoyenneActuelle = $null
-               NotePourPasser =  $null
+               MoyennePourPasserParEvaluation =  $null
                Evaluation = [PSCustomObject]@{}
           }    
           $bulletin += $ajoutBulletin
      }
      Write-Host("Bulletin creer");
+     #création du fichier csv du bulletin pour utilisation ultérieur
      $bulletin | Export-Csv -Path $cheminCreationCSV | Out-Null
      return $bulletin
 
@@ -195,12 +196,12 @@ function Import-Bulletin {
                Cours = [string]$ligne.Cours
                NoteDePassage = [double]$ligne.noteDePassage
                MoyenneActuelle = $null 
-               NotePourPasser =  $null
+               MoyennePourPasserParEvaluation =  $null
                Evaluation = [PSCustomObject]@{}
           }
-          # on verifie si NotePourPasser n'est pas vide pour importer lesinformations
-          if ($ligne.NotePourPasser -ne ""){
-               $ajoutbulletin.NotePourPasser = [double]$ligne.NotePourPasser
+          # on verifie si MoyennePourPasserPar Evaluation n'est pas vide pour importer les informations
+          if ($ligne.MoyennePourPasserParEvaluation -ne ""){
+               $ajoutbulletin.MoyennePourPasserParEvaluation = [double]$ligne.MoyennePourPasserParEvaluation
                }
           <# On verifie si Evaluation n'est pas vide et si ce qui est ecrit commence par @{}
           pour pouvoir importer l'objet evaluation de notre csv#>
@@ -214,6 +215,7 @@ function Import-Bulletin {
      return $bulletin
 }
 
+#
 function Set-Bulletin {
      param (
           [Parameter(Mandatory=$True, ValueFromPipeline=$True)][psobject[]]$bulletin,
@@ -222,17 +224,18 @@ function Set-Bulletin {
           [Parameter(Mandatory=$True)][double[]]$note,
           [Parameter(Mandatory=$True)][double[]]$ponderation
      )
-
+     #On vérifie que le cours qu'on souhaite modifier existe dans le csv ou variable 
      $modifiercours = $bulletin | Where-Object {$_.IDCours -eq $IDCours}
      if (-not $modifiercours) {
           Write-Error "Le cours $IDCours ne se trouve pas dans le bulletin"
           break
      }
+     #On s'assure que les trois listes aient le meme nombre d'elements
      if (($nomEvaluation.count -ne $note.count) -or ($nomEvaluation.Count -ne $ponderation.count)){
           Write-Host("Il manque des valeurs dans le parametre nomEvaluation, note ou ponderation ")
           break
      }
-
+     #on fait notre boucle pour ajouter les evaluations avec leur note et ponderation
      for ($i = 0; $i -lt $nomEvaluation.count; $i++) {
           $eval = $nomEvaluation[$i]
           $notePonderation = [PSCustomObject]@{
@@ -244,31 +247,50 @@ function Set-Bulletin {
 
      $totalNotePonderer = 0.0
      $totalPonderation = 0.0
-
+     #On boucle sur nos evaluations pour chaque cours selectionner pour faire le calcul de la note pondere
     foreach ($eval in $modifiercours.Evaluation.psobject.Properties) {
         $noteEval = $eval.Value.Note
         $pondEval = $eval.Value.Ponderation
-        
+     #on vérifie que la valeur n'est pas nul et on fait le calcul de notre note pondéré
         if ($null -ne $pondEval) {
             $totalNotePonderer += ($noteEval * $pondEval)
             $totalPonderation += $pondEval
         }
     }
-
+    <#On vérifie si le total de la pondération est plus grand que 0, si oui, 
+    on fait le calcul de notre moyenne total de nos evaluations par cours#>
     if ($totalPonderation -gt 0) {
         $moyenneActuelle = $totalNotePonderer / $totalPonderation
         $modifiercours.MoyenneActuelle = [math]::Round($moyenneActuelle, 2)
     } else {
         $modifiercours.MoyenneActuelle = $null
     }
+    $noteDePassage = $modifiercours.NoteDePassage
+    $ponderationRestante = 100 - $totalPonderation
+
+    if ($ponderationRestante -le 0) {
+        if ($modifiercours.MoyenneActuelle -ge $noteDePassage) {
+            $modifiercours.MoyennePourPasserParEvaluation = 0 
+        } else {
+            $modifiercours.MoyennePourPasserParEvaluation = $null
+        }
+    }
+    else {
+        # On calcul les points manquants pour passer
+        $pointsRequisPourPasser = $noteDePassage * 100
+        $pointsManquants = $pointsRequisPourPasser - $totalNotePonderer
+
+        if ($pointsManquants -le 0) {
+            $modifiercours.MoyennePourPasserParEvaluation = 0
+        }
+        else {
+            $noteRequise = $pointsManquants / $ponderationRestante
+            $noteRequiseArrondie = [math]::Round($noteRequise, 2)
+            $modifiercours.MoyennePourPasserParEvaluation = $noteRequiseArrondie
+        }
+    }
     Write-Host "Modification du bulletin terminée"
     return $bulletin
-}
-
-function Get-AnalyseBulletin {
-     param(
-
-     )
 }
 
 <#Fonction qui permet d'ajuster les marges du document
