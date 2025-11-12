@@ -116,9 +116,13 @@ function creerEvenementCalendrier {
 }
 
 <#
- @params :
- @return :
+ @params : $IDCours        -> String contenant les codes d'identification de cours Ex. CR431
+           $nomCours       -> String contenant le noms du cours
+           $cheminDossier  -> String contenant le chemin ou le dossier sera créer
+           $noteDePassage  -> Double qui contient la note de passage par cours
+ @return:  $bulletin       -> Tableau qui contient nos informations IDCours, nomsCours et noteDePassage
 #>
+#Fonction qui crée notre bulletin
 function New-Bulletin {
      param (
           [Parameter(Mandatory = $True)][string[]]$IDCours,
@@ -126,8 +130,8 @@ function New-Bulletin {
           [string]$cheminDossier,
           [Double[]]$noteDePassage = 60
      )
-     <#Verifier si le chemin est defini par l'utilisateur sinon creer le dossier dans un endroit par defaut
-     en fonction du os pour la creation du fichier csv#>
+     <#Verifier si le chemin est défini par l'utilisateur sinon créer le dossier dans un endroit par défaut
+     en fonction du OS pour la création du fichier csv#>
      if (-not $cheminDossier) {
           if ($IsWindows) {
                New-Item -Path "$HOME\Documents" -ItemType Directory -Name Bulletin | Out-Null
@@ -141,20 +145,20 @@ function New-Bulletin {
                break
           }
      } else {
-          #Si l'utilisateur a donner un chemin, on l'utilise au lieu d'utiliser celui par defaut
+          #Si l'utilisateur a donné un chemin, on l'utilise au lieu d'utiliser celui par defaut
           New-Item -Path $cheminDossier -ItemType Directory -Name Bulletin | Out-Null
           $cheminDossierBulletin= Join-Path -Path $cheminDossier -ChildPath "Bulletin"
           $CheminCreationCSV = Join-Path -Path $cheminDossierBulletin -ChildPath "Bulletin.csv"
      }
-     #S'assurer que les id de cours et les cours ont le meme nombre de champs chaque
+     #S'assurer que les id de cours et les cours ont le même nombre de champs chaque
      if ($IDCours.count -ne $nomsCours.count){
-          Write-Host("Il manque des valeurs dans le parametre IDCours ou nomsCours")
+          Write-Host "Il manque des valeurs dans le parametre IDCours ou nomsCours"
           break
      }
      $bulletin = @()
      
-     <#Boucle pour la creation de nos tableaux de chaque cours en fonction des entrees
-     et les sauvegarder dans notre variable pour les retourner#>
+     <#Boucle pour la création de nos objets de chaque cours en fonction des entrees
+     et les sauvegarder dans notre tableau bulletin#>
      for ($i = 0; $i -lt $IDCours.count; $i++) {
 
           $ajoutBulletin = [PSCustomObject]@{
@@ -168,19 +172,23 @@ function New-Bulletin {
           $bulletin += $ajoutBulletin
      }
      Write-Host("Bulletin creer");
-     #création du fichier csv du bulletin pour utilisation ultérieur
+     #Création du fichier csv du bulletin pour utilisation ultérieur
      $bulletin | Export-Csv -Path $cheminCreationCSV | Out-Null
      return $bulletin
 
 }
 
-<##>
+<#
+ @params : $cheminDossier  -> String contenant le chemin ou le dossier sera créer
+ @return : $bulletin       -> Tableau qui contient nos informations importer du CSV
+#>
+#Fonction qui importe notre bulletin depuis un format CSV
 function Import-Bulletin {
      param (
      [Parameter(Mandatory = $True)][string]$CheminCSV
      )
-     <#on essaie le chemin donner par l'utilisateur, si il n'existe pas, on sort un erreur comme quoi le fichier
-     n'a pas ete trouver#>
+     <#On essaie le chemin donneé par l'utilisateur, si il n'existe pas, on sort un erreur comme quoi le fichier
+     n'a pas été trouvé#>
      try {
           $bulletinCSV = Import-Csv -Path $CheminCSV
      } catch {
@@ -215,7 +223,16 @@ function Import-Bulletin {
      return $bulletin
 }
 
-#
+<#
+ @params : $bulletin       -> Tableau provenant d'une fonction antérieur
+           $IDCours        -> String contenant les codes d'identification de cours Ex. CR431
+           $nomEvaluation  -> String contenant le noms des évaluations
+           $note           -> Double qui contient les notes à modifier
+           $ponderation    -> Double qui contient la pondération de chacune des évaluations
+ @return:  $bulletin       -> Tableau modifié qui contient nos informations IDCours, nomsCours, noteDePassage, 
+                              MoyenneActuelle, MoyennePourPasserParEvaluation et l'objet Evaluation
+#>
+#Fonction qui créer notre bulletin
 function Set-Bulletin {
      param (
           [Parameter(Mandatory=$True, ValueFromPipeline=$True)][psobject[]]$bulletin,
@@ -237,14 +254,18 @@ function Set-Bulletin {
      }
      #on fait notre boucle pour ajouter les evaluations avec leur note et ponderation
      for ($i = 0; $i -lt $nomEvaluation.count; $i++) {
-          $eval = $nomEvaluation[$i]
-          $notePonderation = [PSCustomObject]@{
-               Note = $note[$i]
-               Ponderation = $ponderation[$i]
+          try{
+               $eval = $nomEvaluation[$i]
+               $notePonderation = [PSCustomObject]@{
+                    Note = $note[$i]
+                    Ponderation = $ponderation[$i]
+               }
+               add-member -InputObject $modifiercours.Evaluation -MemberType NoteProperty -Name $eval -Value $notePonderation -ErrorAction Stop   
+     
+          }catch{
+               Write-Warning "Impossible d'ajouter l'evaluation '$eval' Il est deja existant."
           }
-          add-member -InputObject $modifiercours.Evaluation -MemberType NoteProperty -Name $eval -Value $notePonderation     
      }
-
      $totalNotePonderer = 0.0
      $totalPonderation = 0.0
      #On boucle sur nos evaluations pour chaque cours selectionner pour faire le calcul de la note pondere
@@ -267,8 +288,9 @@ function Set-Bulletin {
     }
     $noteDePassage = $modifiercours.NoteDePassage
     $ponderationRestante = 100 - $totalPonderation
-
-    if ($ponderationRestante -le 0) {
+    <#On vérifie si la pondération est à 0, donc que toute les évaluations ont été ajouté
+     et on ajuste les champs MoyennePourPasseParEvaluation en fonction#>
+    if ($ponderationRestante -eq 0) {
         if ($modifiercours.MoyenneActuelle -ge $noteDePassage) {
             $modifiercours.MoyennePourPasserParEvaluation = 0 
         } else {
@@ -276,10 +298,10 @@ function Set-Bulletin {
         }
     }
     else {
-        # On calcul les points manquants pour passer
+        # On calcul les points manquants pour passer avec la ponderation
         $pointsRequisPourPasser = $noteDePassage * 100
         $pointsManquants = $pointsRequisPourPasser - $totalNotePonderer
-
+        # On vérifie si l'étudiant a déjà atteint ou dépassé la note de passage
         if ($pointsManquants -le 0) {
             $modifiercours.MoyennePourPasserParEvaluation = 0
         }
