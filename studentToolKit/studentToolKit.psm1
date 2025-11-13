@@ -119,7 +119,6 @@ function creerEvenementCalendrier {
  @params : $IDCours        -> String contenant les codes d'identification de cours Ex. CR431
            $nomCours       -> String contenant le noms du cours
            $cheminDossier  -> String contenant le chemin ou le dossier sera créer
-           $noteDePassage  -> Double qui contient la note de passage par cours
  @return:  $bulletin       -> Tableau qui contient nos informations IDCours, nomsCours et noteDePassage
 #>
 #Fonction qui crée notre bulletin
@@ -127,8 +126,7 @@ function New-Bulletin {
      param (
           [Parameter(Mandatory = $True)][string[]]$IDCours,
           [Parameter(Mandatory = $True)][string[]]$nomsCours,
-          [string]$cheminDossier,
-          [Double[]]$noteDePassage = 60
+          [string]$cheminDossier
      )
      <#Verifier si le chemin est défini par l'utilisateur sinon créer le dossier dans un endroit par défaut
      en fonction du OS pour la création du fichier csv#>
@@ -148,7 +146,7 @@ function New-Bulletin {
           #Si l'utilisateur a donné un chemin, on l'utilise au lieu d'utiliser celui par defaut
           New-Item -Path $cheminDossier -ItemType Directory -Name Bulletin | Out-Null
           $cheminDossierBulletin= Join-Path -Path $cheminDossier -ChildPath "Bulletin"
-          $CheminCreationCSV = Join-Path -Path $cheminDossierBulletin -ChildPath "Bulletin.csv"
+          $CheminCreationJson = Join-Path -Path $cheminDossierBulletin -ChildPath "Bulletin.json"
      }
      #S'assurer que les id de cours et les cours ont le même nombre de champs chaque
      if ($IDCours.count -ne $nomsCours.count){
@@ -164,7 +162,7 @@ function New-Bulletin {
           $ajoutBulletin = [PSCustomObject]@{
                IDCours = $IDCours[$i]
                Cours = $nomsCours[$i]
-               NoteDePassage = $noteDePassage[$i]
+               NoteDePassage = 60
                MoyenneActuelle = $null
                MoyennePourPasserParEvaluation =  $null
                Evaluation = [PSCustomObject]@{}
@@ -173,54 +171,27 @@ function New-Bulletin {
      }
      Write-Host("Bulletin creer");
      #Création du fichier csv du bulletin pour utilisation ultérieur
-     $bulletin | Export-Csv -Path $cheminCreationCSV | Out-Null
+     $bulletin | ConvertTo-Json | Out-File -Path $CheminCreationJson | Out-Null
      return $bulletin
-
 }
-
 <#
- @params : $cheminDossier  -> String contenant le chemin ou le dossier sera créer
- @return : $bulletin       -> Tableau qui contient nos informations importer du CSV
+ @params : $cheminJson     -> String contenant le chemin ou le dossier sera créer
+ @return : $bulletin       -> Tableau qui contient nos informations importer du Json
 #>
-#Fonction qui importe notre bulletin depuis un format CSV
+#Fonction qui importe notre bulletin depuis un format Json
 function Import-Bulletin {
-     param (
-     [Parameter(Mandatory = $True)][string]$CheminCSV
-     )
-     <#On essaie le chemin donneé par l'utilisateur, si il n'existe pas, on sort un erreur comme quoi le fichier
-     n'a pas été trouvé#>
-     try {
-          $bulletinCSV = Import-Csv -Path $CheminCSV
-     } catch {
-          Write-error "Fichier non trouver dans $CheminCSV"
-          return
-     }
-     <#On boucle les lignes dans le fichier csv pour importer les informations dans notre objet
-     ajoutbulletin et on l'ajoute a notre tableau $bulletin #>
-     $bulletin = @()
-     foreach ($ligne in $bulletinCSV) {
-          $ajoutbulletin = [PSCustomObject]@{
-               IDCours = [string]$ligne.IDCours
-               Cours = [string]$ligne.Cours
-               NoteDePassage = [double]$ligne.noteDePassage
-               MoyenneActuelle = $null 
-               MoyennePourPasserParEvaluation =  $null
-               Evaluation = [PSCustomObject]@{}
-          }
-          # on verifie si MoyennePourPasserPar Evaluation n'est pas vide pour importer les informations
-          if ($ligne.MoyennePourPasserParEvaluation -ne ""){
-               $ajoutbulletin.MoyennePourPasserParEvaluation = [double]$ligne.MoyennePourPasserParEvaluation
-               }
-          <# On verifie si Evaluation n'est pas vide et si ce qui est ecrit commence par @{}
-          pour pouvoir importer l'objet evaluation de notre csv#>
-          if ($ligne.Evaluation -ne "" -and $ligne.Evaluation.StartsWith("@{")){
-               $objetEvaluation = Invoke-Expression $ligne.Evaluation
-               $ajoutbulletin.Evaluation = [PSCustomObject]$objetEvaluation
-               }
-          $bulletin += $ajoutBulletin
-     }
-     write-Host "Importation du Bulletin CSV terminée"
-     return $bulletin
+    param (
+        [Parameter(Mandatory=$true)][string]$CheminJson
+    )
+
+    try {
+        $bulletin = Get-Content -Path $CheminJson -Raw | ConvertFrom-Json
+        Write-Host "Importation du bulletin depuis JSON terminée."
+        return $bulletin
+    } catch {
+        Write-Error "Impossible de lire le fichier JSON a $CheminJson"
+        
+    }
 }
 
 <#
@@ -235,7 +206,7 @@ function Import-Bulletin {
 #Fonction qui créer notre bulletin
 function Set-Bulletin {
      param (
-          [Parameter(Mandatory=$True, ValueFromPipeline=$True)][psobject[]]$bulletin,
+          [Parameter(Mandatory=$True)][psobject[]]$bulletin,
           [Parameter(Mandatory=$True)][string]$IDCours,
           [Parameter(Mandatory=$True)][string[]]$nomEvaluation,
           [Parameter(Mandatory=$True)][double[]]$note,
